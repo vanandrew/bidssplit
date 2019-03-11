@@ -53,6 +53,9 @@ def main(args):
         data = img.get_fdata()
         dims = data.shape
 
+        # scale 12-bit data to fill 16-bit container
+        data = np.round((data/4095)*65535)
+
         # write images to disk
         for n in range(dims[orient_code]):
             imwrite(
