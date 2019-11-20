@@ -13,15 +13,25 @@ T2list = sorted([i for i in files if "T2w.nii.gz" in i])[:2]
 masklist = sorted([i for i in files if "brainmask.nii.gz" in i])[:2]
 
 # Define tf Example serializer for brain data
-def serialize_brain_data(feature_img,shape):
+def serialize_brain_data(t1,t2,mask,shape):
     """
         Saves data as tf.Example format
     """
     # create a dict of features to pass into tf Features 
     feature_dict = {
-        'feature_img': tf.train.Feature( # makes a single feature
+        't1': tf.train.Feature( # makes a single feature
             bytes_list=tf.train.BytesList( # converts to tf Example bytes list
-                value=[feature_img] # pass in the numpy bytes to the list
+                value=[t1] # pass in the numpy bytes to the list
+            )
+        ),
+        't2': tf.train.Feature(
+            bytes_list=tf.train.BytesList(
+                value=[t2]
+            )
+        ),
+        'mask': tf.train.Feature(
+            bytes_list=tf.train.BytesList(
+                value=[mask]
             )
         ),
         'shape': tf.train.Feature(
@@ -40,36 +50,53 @@ T2s = list()
 masks = list()
 tfrecords_path = "/mnt/Daenerys/HBCD/tfrecords/"
 # write data to tfrecord
-with tf.io.TFRecordWriter(tfrecords_path+"hbcd_t1_data.00.tfrecords") as writer:
+with tf.io.TFRecordWriter(tfrecords_path+"hbcd.tfrecords","ZLIB") as writer:
     for t1,t2,mask in zip(T1list,T2list,masklist):
+        # load t1, t2, and mask
         print(t1)
-        # serialize subject to write to tfrecord
-        subdata = nib.load(path+t1)
+        t1data = nib.load(path+t1)
+        print(t2)
+        t2data = nib.load(path+t2)
+        print(mask)
+        maskdata = nib.load(path+mask)
 
+        # serialize subject to write to tfrecord
         subject = serialize_brain_data(
-            subdata.get_data().ravel().tobytes(), # saves as float32 bytes
-            np.array(subdata.shape).tobytes() # saves as int64 bytes
+            t1data.get_data().ravel().tobytes(), # saves as float32 bytes
+            t2data.get_data().ravel().tobytes(), # saves as float32 bytes
+            maskdata.get_data().ravel().tobytes(), # saves as float32 bytes
+            np.array(t1data.shape).tobytes() # saves as int64 bytes
         )
+
         # write to tf record
         writer.write(subject)
 
-# read tfrecord
-feature_description = {
-    'feature_img': tf.io.FixedLenFeature([], tf.string),
-    'shape': tf.io.FixedLenFeature([], tf.string)
-}
-def parse_img_function(example):
-    return tf.io.parse_single_example(example, feature_description)
-raw_tfrecord = tf.data.TFRecordDataset(tfrecords_path+'hbcd_t1_data.00.tfrecords')
-parsed_image_dataset = raw_tfrecord.map(parse_img_function)
+# # read tfrecord
+# feature_description = {
+#     't1': tf.io.FixedLenFeature([], tf.string),
+#     't2': tf.io.FixedLenFeature([], tf.string),
+#     'mask': tf.io.FixedLenFeature([], tf.string),
+#     'shape': tf.io.FixedLenFeature([], tf.string)
+# }
+# def parse_img_function(example):
+#     return tf.io.parse_single_example(example, feature_description)
+# raw_tfrecord = tf.data.TFRecordDataset(tfrecords_path+'hbcd.tfrecords',"ZLIB")
+# parsed_image_dataset = raw_tfrecord.map(parse_img_function)
 
-# decode data into tensor
-import simplebrainviewer as sbv
-for i in parsed_image_dataset:
-    # decode the shape data
-    shaped = tf.io.decode_raw(i['shape'],'int64')
-    # decode image data
-    image_data = tf.io.decode_raw(i['feature_img'],'float')
-    a = tf.reshape(image_data, shaped)
-    print(a)
-    sbv.plot_brain(a.numpy())
+# # decode data into tensor
+# import simplebrainviewer as sbv
+# for i in parsed_image_dataset:
+#     # decode the shape data
+#     shaped = tf.io.decode_raw(i['shape'],'int64')
+#     # decode image data
+#     image_data = tf.io.decode_raw(i['t1'],'float')
+#     a = tf.reshape(image_data, shaped)
+#     sbv.plot_brain(a.numpy())
+#     # decode image data
+#     image_data = tf.io.decode_raw(i['t2'],'float')
+#     a = tf.reshape(image_data, shaped)
+#     sbv.plot_brain(a.numpy())
+#     # decode image data
+#     image_data = tf.io.decode_raw(i['mask'],'float')
+#     a = tf.reshape(image_data, shaped)
+#     sbv.plot_brain(a.numpy())
