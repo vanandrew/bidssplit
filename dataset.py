@@ -8,9 +8,9 @@ import tensorflow as tf
 # get list of T1s/T2s/masks
 path = "/mnt/Daenerys/HBCD/organized_data/"
 files = os.listdir(path)
-T1list = sorted([i for i in files if "T1w.nii.gz" in i])[:2]
-T2list = sorted([i for i in files if "T2w.nii.gz" in i])[:2]
-masklist = sorted([i for i in files if "brainmask.nii.gz" in i])[:2]
+T1list = sorted([i for i in files if "T1w.nii.gz" in i])
+T2list = sorted([i for i in files if "T2w.nii.gz" in i])
+masklist = sorted([i for i in files if "brainmask.nii.gz" in i])
 
 # Define tf Example serializer for brain data
 def serialize_brain_data(t1,t2,mask,shape):
