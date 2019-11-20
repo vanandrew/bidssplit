@@ -47,8 +47,8 @@ with tf.io.TFRecordWriter(tfrecords_path+"hbcd_t1_data.00.tfrecords") as writer:
         subdata = nib.load(path+t1)
 
         subject = serialize_brain_data(
-            subdata.get_fdata().ravel().tobytes(),
-            np.array(subdata.shape).tobytes()
+            subdata.get_data().ravel().tobytes(), # saves as float32 bytes
+            np.array(subdata.shape).tobytes() # saves as int64 bytes
         )
         # write to tf record
         writer.write(subject)
@@ -62,13 +62,14 @@ def parse_img_function(example):
     return tf.io.parse_single_example(example, feature_description)
 raw_tfrecord = tf.data.TFRecordDataset(tfrecords_path+'hbcd_t1_data.00.tfrecords')
 parsed_image_dataset = raw_tfrecord.map(parse_img_function)
-slist = [np.frombuffer(i['feature_img'].numpy()).reshape(np.frombuffer(i['shape'].numpy(),dtype=np.int)) for i in parsed_image_dataset]
-# # save to TFrecord
-# t1_dataset = tf.data.Dataset.from_tensor_slices(T1s)
-# serialized_t1_dataset = tf.io.serialize_tensor(t1_dataset)
-# print(t1_dataset)
-# print(serializer_t1_dataset)
-# # t2_dataset = tf.data.Dataset.from_tensor_slices(T2s)
-# # mask_dataset = tf.data.Dataset.from_tensor_slices(masks)
-# writer = tf.data.experimental.TFRecordWriter("./t1_dataset.01.tfrecords")
-# writer.write(t1_dataset)
+
+# decode data into tensor
+import simplebrainviewer as sbv
+for i in parsed_image_dataset:
+    # decode the shape data
+    shaped = tf.io.decode_raw(i['shape'],'int64')
+    # decode image data
+    image_data = tf.io.decode_raw(i['feature_img'],'float')
+    a = tf.reshape(image_data, shaped)
+    print(a)
+    sbv.plot_brain(a.numpy())
