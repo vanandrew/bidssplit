@@ -1,5 +1,5 @@
-# bidssplit
-A simple script for converting 3D volumes into 2D slices. It expects that the data is stored as a BIDS dataset.
+# neurosplitter
+A collection of scripts for manipulating neuroimaging data for use in TensorFlow
 
 ```
 usage: bidssplit.py [-h] [-o {T,S,C}] [-e EXCLUDE]
