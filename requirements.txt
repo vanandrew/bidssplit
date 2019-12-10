@@ -1,0 +1,3 @@
+nibabel>=2.5.1
+pybids>=0.10.0
+imageio>=2.6.1

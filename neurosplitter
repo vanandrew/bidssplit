@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+import os
+import argparse
+import numpy as np
+import nibabel as nib
+from bids import BIDSLayout
+from imageio import imwrite,imread
+
+def main(args):
+    # check if in compose mode
+    if args.compose:
+        compose(args.compose,args.orientation)
+    # Check if being used in bids mode or single image mode
+    elif args.bids_directory and args.output_directory and not args.input_image and not args.output_prefix:
+        bids_mode(args.bids_directory,args.output_directory,args.orientation,args.suffix,args.scale,args.exclude)
+    elif args.input_image and args.output_prefix and not args.bids_directory and not args.output_directory:
+        output_dir = os.path.dirname(args.output_prefix)
+        os.makedirs(output_dir,exist_ok=True) # make output directory if not exist
+        img = nib.load(args.input_image) # load image
+        decompose(img,args.output_prefix,args.orientation,args.scale)
+    else:
+        raise ValueError("Invalid inputs. Check that you are using the input flags properly.")
+
+def compose(slice_dir: str, orientation: str):
+    """
+        Composes nifti volume from slices found in slice directory
+    """
+    # get all slices and sort
+    slice_list = [i for i in os.listdir(slice_dir) if '.png' in i]
+    slice_list.sort()
+    
+    # get prefix of first entry, we'll use this for the basename
+    name_prefix = get_prefix(slice_list[0]).split("_slice")[0]
+    
+    # read in images
+    img_list = list()
+    for s in slice_list:
+        img = imread(os.path.join(slice_dir,s))
+        if orientation == 'S':
+            img = np.flip(img, axis=0).T[np.newaxis,:,:]
+        elif orientation == 'C':
+            img = np.flip(img, axis=0).T[:,np.newaxis,:]
+        elif orientation == 'T':
+            img = np.flip(img, axis=0).T[:,:,np.newaxis]
+        img_list.append(img)
+
+    # concatenate images
+    orient_code = {'S': 0, 'C': 1, 'T': 2}[orientation]
+    voldata = np.concatenate(img_list,axis=orient_code)
+ 
+    # writeout nifti image
+    nib.Nifti1Image(voldata,np.eye(4)).to_filename(os.path.join(slice_dir,name_prefix+".nii.gz"))
+
+def decompose(img: nib.Nifti1Image, name: str, orientation: str, scale: int):
+    """
+        Splits a nibabel Nifti1Image into separate slices given orientation to make slices on
+    """
+
+    # Force RAS+ orientation
+    img = nib.as_closest_canonical(img)
+
+    # get orient code
+    orient_code = {'S': 0, 'C': 1, 'T': 2}[orientation]
+
+    # get volume data
+    data = img.get_fdata()
+    dims = data.shape
+
+    # scale data
+    data = np.round((data/scale)*65535)
+
+    # write images to disk
+    for n in range(dims[orient_code]):
+        output_filename = name+'_slice-{:0>4d}.png'.format(n)
+        print(output_filename)
+        imwrite(output_filename,np.flip(simple_slice(data,n,orient_code).T.astype('uint16'), axis=0))
+
+def bids_mode(input_dir: str, output_dir: str, orientation: str, suffix: str, scale: int, exclude: list=None):
+    """
+        Runs decompose on all images in a bids dataset
+    """
+    # make the output directory path
+    os.makedirs(output_dir,exist_ok=True)
+
+    # Create the layout object
+    print('Loading BIDS Directory...')
+    layout = BIDSLayout(input_dir)
+    print(layout)
+
+    # Get T1w images only
+    files = layout.get(suffix=suffix)
+
+    # Get list of subjects to exclude if set
+    exclude_list = [] # make exclude list
+    if exclude:
+        # read in exclude list
+        with open(exclude,'r') as f:
+            for line in f:
+                exclude_list.append(line.rstrip())
+
+    # loop over each file
+    for f in files:
+        print('Processing {}...'.format(f.filename))
+
+        # create output file prefix and directory
+        subject = f.entities['subject']
+        name = os.path.join(output_dir, get_prefix(f.filename), get_prefix(f.filename))
+        file_dir = os.path.dirname(name)
+        os.makedirs(file_dir,exist_ok=True)
+
+        # Check if subject in exclude list
+        if subject in exclude_list:
+            print('sub-{} is in exclude list. Skipping...'.format(subject))
+            # skip if in exclude list
+            continue
+
+        # decompose image
+        decompose(f.get_image(),name,orientation,scale)
+
+def simple_slice(arr, inds, axis):
+    """
+        This does the same as np.take() except only supports simple slicing, not
+        advanced indexing, and thus is much faster
+    """
+    sl = [slice(None)] * arr.ndim
+    sl[axis] = inds
+    return arr[tuple(sl)]
+
+def get_prefix(filename):
+    """
+        Gets prefix of filename without extension
+    """
+    prefix,ext = os.path.splitext(filename)
+    if '.' in prefix:
+        return get_prefix(prefix)
+    else:
+        return prefix
+
+if __name__ == '__main__':
+    # Create command line parser
+    parser = argparse.ArgumentParser(description='Splits volumes in a dataset to 2D. \
+        Useful for Deep Learning Applications.')
+    parser.add_argument('-i', '--bids_directory', help='BIDS mode. Path to BIDS directory to process.')
+    parser.add_argument('-o',  '--output_directory', help='Path to dump image outputs. Used with bids_directory flag.')
+    parser.add_argument('--input_image', help='Single image mode. Use this if you want to process a single image, or non-BIDS data.')
+    parser.add_argument('--output_prefix', help='Output prefix of single image. Used with input_image flag.')
+    parser.add_argument('-r', '--orientation', choices=['T', 'S', 'C'], default='T',
+        help='Orientation of output images (Volume is forced to RAS+ orientation on load). Can be T (Transverse), S (Sagittal), or C (Coronal). Default is T.')
+    parser.add_argument('-s', '--suffix', default='T1w', help="BIDS mode. BIDS file suffix to process.")
+    parser.add_argument('-e', '--exclude', help='Text file with list of subjects to exclude. Just the subject id (no sub-). BIDS mode only')
+    parser.add_argument('-c', '--compose', help='Composes nifti volume from slice directory.')
+    parser.add_argument('--scale', type=int, default=4095, help='Data scale for write. Default is 4095.')
+
+    # parse the arguments
+    args = parser.parse_args()
+
+    # Pass parameters to main
+    main(args)
