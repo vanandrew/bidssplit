@@ -12,7 +12,7 @@ def main(args):
         compose(args.compose,args.orientation)
     # Check if being used in bids mode or single image mode
     elif args.bids_directory and args.output_directory and not args.input_image and not args.output_prefix:
-        bids_mode(args.bids_directory,args.output_directory,args.orientation,args.suffix,args.scale,args.exclude)
+        bids_mode(args.bids_directory,args.output_directory,args.orientation,args.suffix,args.scale,args.exclude,args.include)
     elif args.input_image and args.output_prefix and not args.bids_directory and not args.output_directory:
         output_dir = os.path.dirname(args.output_prefix)
         os.makedirs(output_dir,exist_ok=True) # make output directory if not exist
@@ -28,10 +28,10 @@ def compose(slice_dir: str, orientation: str):
     # get all slices and sort
     slice_list = [i for i in os.listdir(slice_dir) if '.png' in i]
     slice_list.sort()
-    
+
     # get prefix of first entry, we'll use this for the basename
     name_prefix = get_prefix(slice_list[0]).split("_slice")[0]
-    
+
     # read in images
     img_list = list()
     for s in slice_list:
@@ -47,7 +47,7 @@ def compose(slice_dir: str, orientation: str):
     # concatenate images
     orient_code = {'S': 0, 'C': 1, 'T': 2}[orientation]
     voldata = np.concatenate(img_list,axis=orient_code)
- 
+
     # writeout nifti image
     nib.Nifti1Image(voldata,np.eye(4)).to_filename(os.path.join(slice_dir,name_prefix+".nii.gz"))
 
@@ -75,7 +75,7 @@ def decompose(img: nib.Nifti1Image, name: str, orientation: str, scale: int):
         print(output_filename)
         imwrite(output_filename,np.flip(simple_slice(data,n,orient_code).T.astype('uint16'), axis=0))
 
-def bids_mode(input_dir: str, output_dir: str, orientation: str, suffix: str, scale: int, exclude: list=None):
+def bids_mode(input_dir: str, output_dir: str, orientation: str, suffix: str, scale: int, exclude: str, include: str):
     """
         Runs decompose on all images in a bids dataset
     """
@@ -88,7 +88,7 @@ def bids_mode(input_dir: str, output_dir: str, orientation: str, suffix: str, sc
     print(layout)
 
     # Get T1w images only
-    files = layout.get(suffix=suffix)
+    files = layout.get(suffix=suffix,extension='nii.gz')
 
     # Get list of subjects to exclude if set
     exclude_list = [] # make exclude list
@@ -98,21 +98,37 @@ def bids_mode(input_dir: str, output_dir: str, orientation: str, suffix: str, sc
             for line in f:
                 exclude_list.append(line.rstrip())
 
+    # Get list of subjects to include if set
+    include_list = []
+    if include:
+        # read in include list
+        with open(include,'r') as f:
+            for line in f:
+                include_list.append(line.rstrip())
+
     # loop over each file
     for f in files:
         print('Processing {}...'.format(f.filename))
 
-        # create output file prefix and directory
+        # get subject
         subject = f.entities['subject']
-        name = os.path.join(output_dir, get_prefix(f.filename), get_prefix(f.filename))
-        file_dir = os.path.dirname(name)
-        os.makedirs(file_dir,exist_ok=True)
-
+       
+        # Check if subject in include list (only if not empty)
+        if include_list:
+            if not subject in include_list:
+                print('sub-{} is not in include list. Skipping...'.format(subject))
+                continue
+ 
         # Check if subject in exclude list
         if subject in exclude_list:
             print('sub-{} is in exclude list. Skipping...'.format(subject))
             # skip if in exclude list
             continue
+        
+        # create output file prefix and directory
+        name = os.path.join(output_dir, get_prefix(f.filename), get_prefix(f.filename))
+        file_dir = os.path.dirname(name)
+        os.makedirs(file_dir,exist_ok=True)
 
         # decompose image
         decompose(f.get_image(),name,orientation,scale)
@@ -147,7 +163,8 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--orientation', choices=['T', 'S', 'C'], default='T',
         help='Orientation of output images (Volume is forced to RAS+ orientation on load). Can be T (Transverse), S (Sagittal), or C (Coronal). Default is T.')
     parser.add_argument('-s', '--suffix', default='T1w', help="BIDS mode. BIDS file suffix to process.")
-    parser.add_argument('-e', '--exclude', help='Text file with list of subjects to exclude. Just the subject id (no sub-). BIDS mode only')
+    parser.add_argument('-e', '--exclude', help='Text file with list of subjects to exclude. Just the subject id (no sub-). BIDS mode only.')
+    parser.add_argument('-n', '--include', help='Text file with list of subjects to include. Just the subject if (no sub-). BIDS mode only.')
     parser.add_argument('-c', '--compose', help='Composes nifti volume from slice directory.')
     parser.add_argument('--scale', type=int, default=4095, help='Data scale for write. Default is 4095.')
 
