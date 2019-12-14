@@ -21,8 +21,8 @@ def main(args):
             args.bids_directory,
             args.output_directory,
             args.suffix,
-            args.include,
             args.exclude,
+            args.include,
             args.flat,
             args.orientation,
             args.scale,
@@ -163,19 +163,19 @@ def bids_mode(
 
         # get subject
         subject = f.entities['subject']
-       
+
         # Check if subject in include list (only if not empty)
         if include_list:
             if not subject in include_list:
                 print('sub-{} is not in include list. Skipping...'.format(subject))
                 continue
- 
+
         # Check if subject in exclude list
         if subject in exclude_list:
             print('sub-{} is in exclude list. Skipping...'.format(subject))
             # skip if in exclude list
             continue
-        
+
         # create output file prefix and directory
         if args.flat: # places images directly in output dir
             name = os.path.join(output_dir, get_prefix(f.filename))
