@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import argparse
 import numpy as np
 import nibabel as nib
@@ -247,11 +248,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Splits volumes in a dataset to 2D. \
                     Useful for Deep Learning Applications.')
-    subparsers = parser.add_subparsers(
-        title='subcommands',
-        required=True,
-        dest='subcommand',
-        help='Use the -h/--help flag on each subcommand for more help.')
+    if sys.version_info >= (3, 7): # required option only added in 3.7
+        subparsers = parser.add_subparsers(
+            title='subcommands',
+            required=True,
+            dest='subcommand',
+            help='Use the -h/--help flag on each subcommand for more help.')
+    else:
+        subparsers = parser.add_subparsers(
+            title='subcommands',
+            dest='subcommand',
+            help='Use the -h/--help flag on each subcommand for more help.')
 
     # BIDS mode arguments
     bids = subparsers.add_parser('bids', help='Splits an entire BIDS Dataset.')
