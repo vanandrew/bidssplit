@@ -27,18 +27,18 @@ subcommands:
 usage: neurosplitter bids [-h] [-s SUFFIX] [-n INCLUDE] [-e EXCLUDE] [--flat] [-r {T,S,C}] [-p WIDTH HEIGHT] [--scale SCALE] bids_directory output_directory
 
 positional arguments:
-  bids_directory        BIDS mode. Path to BIDS directory to process.
-  output_directory      Path to dump image outputs. Used with bids_directory flag.
+  bids_directory        Path to BIDS directory to process.
+  output_directory      Path to dump image outputs.
 
 optional arguments:
   -h, --help            show this help message and exit
   -s SUFFIX, --suffix SUFFIX
-                        BIDS mode. BIDS file suffix to process.
+                        BIDS file suffix to process.
   -n INCLUDE, --include INCLUDE
-                        Text file with list of subjects to include. Just the subject id (no sub-). BIDS mode only.
+                        Text file with list of subjects to include. Just the subject id (no sub-).
   -e EXCLUDE, --exclude EXCLUDE
-                        Text file with list of subjects to exclude. Just the subject id (no sub-). BIDS mode only.
-  --flat                If used, write all images to the output directory directly without subfolders. BIDS mode only.
+                        Text file with list of subjects to exclude. Just the subject id (no sub-).
+  --flat                If used, write all images to the output directory directly without subfolders.
   -r {T,S,C}, --orientation {T,S,C}
                         Orientation of output images (Volume is forced to RAS+ orientation on load). Can be T (Transverse), S (Sagittal), or C (Coronal). Default is T.
   -p WIDTH HEIGHT, --pad_crop WIDTH HEIGHT
@@ -50,8 +50,8 @@ optional arguments:
 usage: neurosplitter single [-h] [-r {T,S,C}] [-p WIDTH HEIGHT] [--scale SCALE] input_image output_prefix
 
 positional arguments:
-  input_image           Single image mode. Use this if you want to process a single image, or non-BIDS data.
-  output_prefix         Output prefix of single image. Used with input_image flag.
+  input_image           Path to input image.
+  output_prefix         Output prefix of split images.
 
 optional arguments:
   -h, --help            show this help message and exit
