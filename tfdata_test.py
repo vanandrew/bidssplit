@@ -35,8 +35,8 @@ def serialize_brain_data(t1,t2,mask,shape):
             )
         ),
         'shape': tf.train.Feature(
-            bytes_list=tf.train.BytesList(
-                value=[shape]
+            int64_list=tf.train.Int64List(
+                value=shape
             )
         )
     }
@@ -65,7 +65,7 @@ with tf.io.TFRecordWriter(tfrecords_path+"hbcd.tfrecords","ZLIB") as writer:
             t1data.get_data().ravel().tobytes(), # saves as float32 bytes
             t2data.get_data().ravel().tobytes(), # saves as float32 bytes
             maskdata.get_data().ravel().tobytes(), # saves as float32 bytes
-            np.array(t1data.shape).tobytes() # saves as int64 bytes
+            t1data.shape # saves as int64
         )
 
         # write to tf record
