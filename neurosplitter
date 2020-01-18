@@ -204,7 +204,7 @@ def resize_slice(data_slice: np.array, pad_crop: list):
                 dim1 = -int(np.floor(d/2))
                 dim2 = -int(np.ceil(d/2))
             # now slice the dim of the data to the correct size
-            data_slice = simple_slice(data_slice, slice(dim1,current_dims[0]-dim2,1), i[0])
+            data_slice = simple_slice(data_slice, slice(dim1,current_dims[i[0]]-dim2,1), i[0])
         elif d > 0: # need to expand dim by d
             if d % 2 == 0: # difference even
                 dim1 = int(d/2) # find half of dim difference
